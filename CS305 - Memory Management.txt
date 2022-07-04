@@ -1,0 +1,502 @@
+#####   Operating Systems Assignment 1 - Solving Memory Management Problems
+#####               July 3, 2022 - by Joel Garcia
+#####       Computer Science 305: Operating Systems - Study.Com
+
+##### Assignment is split into 4 sections; basic jobs, expanded FIFO jobs, expanded LFU jobs, and expanded random jobs. 
+##### Comment breaks precede each section to explain my general approach, rationale, and analysis.
+##### I had to make certain assumption about job attributes as assignment prompt was rather vague,
+##### but I did my best to stay within the rubric and show an overall understanding of memory management.
+##### This entire text can be copied and pasted into a compiler and run.
+##### Sections can also be copied and pasted below import and class to be checked individually.
+
+import time
+import random
+
+# creating a class to hold jobs
+# attributes based on assignment prompt
+# primary key added as a unique identifier because some 
+# jobs in expanded list share the same job id but have different attributes
+class job:
+    def __init__(self, primaryKey, id, start, size, interval, state):
+        self.primaryKey = primaryKey ### primary key is added as a unique job identifier for algorithm
+        self.id = id
+        self.start = start
+        self.size = size
+        self.interval = interval
+        self.state = state
+
+#####
+##### Scenario 1 serves as a basic test case. Pages are allocated to the first memory spaces available,
+##### and the entirety of the jobs list can fit within the 20 kb total memory so no effort is given to
+##### queue prioritization and replacement of jobs in progress. Jobs are simply added in the first place 
+##### they fit, execution intervals are de-incremented as the timer ticks, and are then deallocated as
+##### soon as the execution interval is complete. There is little to analyze here other than that it
+##### shows how the program will operate in subsequent sections.
+#####
+
+# creating array to hold the basic jobs list
+# note that these would normally be created by reading a txt or csv file
+# but are written here manually so code can easily be copied and pasted
+jobs1 = []
+jobs1.append(job(1, 1, 1, 2, 7, "End"))
+jobs1.append(job(2, 2, 2, 3, 8, "Sleep"))
+jobs1.append(job(3, 3, 3, 4, 6, "End"))
+jobs1.append(job(4, 4, 4, 3, 6, "Sleep"))
+jobs1.append(job(5, 5, 5, 2, 9, "Sleep"))
+jobs1.append(job(6, 6, 6, 3, 6, "Sleep"))
+jobs1.append(job(7, 7, 7, 2, 6, "Sleep"))
+
+# defining variables
+timer = 0 # tracks time - increments every second
+jobsLeft = len(jobs1) # tracks jobs remaining
+inProgress = [] # page table - these are jobs in progress allocated to memory
+jobsAdded = 0 # tracks jobs added each timer tick - for visual output
+jobsRemoved = 0 # tracks jobs removed each timer tick - for visual output
+totalMem = 20 # starting memory - gets incremented whenever page allocation/deallocation occurs
+
+# visual output for program start
+print("Basic Job Set - First Fit Allocation")
+print("starting in 3...")
+time.sleep(1)
+print("2...")
+time.sleep(1)
+print("1...\n")
+time.sleep(1)
+
+### basic algorithm for first fit memory allocation
+while jobsLeft > 0: # ends when no jobs remaining
+    jobsAdded = 0
+    jobsRemoved = 0
+
+    # loops through each job every timer tick
+    for obj in jobs1:
+        if obj.interval == 0: # skips loop if interval = 0 (job complete)
+            continue
+
+        # if job is in progress, reduces job execution interval every timer tick
+        if obj.primaryKey in inProgress:
+            obj.interval -= 1
+
+        # page allocation when start time = timer 
+        if obj.start == timer:
+            inProgress.append(obj.primaryKey)
+            jobsAdded += 1
+            totalMem -= obj.size
+
+        # once job is done (execution interval = 0), deallocates job from page table
+        if obj.interval == 0:
+            inProgress.remove(obj.primaryKey)
+            totalMem += obj.size
+            jobsLeft -= 1
+            jobsRemoved += 1
+
+    # using sleep funtion to pause program for 1 second and incrementing timer interval
+    time.sleep(1)
+    timer += 1
+    
+    print("Time Interval: ", timer - 1, " seconds") # visual output to track work done every time interval
+    print("Jobs added:", jobsAdded)
+    print("Jobs removed:", jobsRemoved)
+    print("Memory used: ", 20 - totalMem, "Kbyte")
+    print("There are ", jobsLeft, " jobs remaining.\n")
+
+# once all jobs are complete, this deallocates jobs with "End" state and outputs results
+jobsRemoved = 0
+for obj in jobs1:
+    if obj.state == "End":
+        jobs1.remove(obj)
+        jobsRemoved += 1
+print(jobsRemoved, " jobs with \"End\" state status have been removed.\n")
+
+#####
+##### Scenario 2 explores First In First Out page replacement and best fit memory allocation. From my understanding,
+##### FIFO is the algorithm used by Windows, so this scenario will show the difference in Windows OS memory management.
+#####
+##### Because the expanded jobs list does not fit within the 20kn total memory as does the basic list, the
+##### code from the previous section is expanded upon to include an algorithm to handle page replacement 
+##### based on FIFO. When there is not enough memory for the next job in queue, the algorithm will remove
+##### the first element in the page table (first in) until enough memory is available. 
+#####
+##### An algorithm is also added after the job complete deallocation that will search for previously deallocated 
+##### but imcomplete jobs that best fit within the newly deallocated memory space. 
+#####
+##### It is important to note that with my interpretation of the job attributes, particularly of start time 
+##### being how long it takes the job to start and execution interval how many timer ticks to be completed, 
+##### the total program run time remains the same amongst all scenarios at 48 seconds. This is because no
+##### matter how pages are allocated, so long as they are allocated efficiently the run time is determined by 
+##### the total cumulative number of timer ticks based on execution interval.
+#####
+##### Therefore, the primary analysis I can make is of how well memory is fit when pages are allocated. FIFO 
+##### appears to be the most efficient in this regard, because it gives jobs enough time in memory to have the
+##### timer tick the interval before being replaced. The result is that memory is fully utilized early on, has 
+##### a small dip in the middle before going back up, then drops sharply towards the end as jobs run out.
+#####
+##### My overall analysis is that FIFO appears to be fast, but is probably occasionally less stable as it keeps
+##### memory close to maxed out for longer periods of time. Honestly, this explains why Windows BSOD is a thing.
+#####
+
+# creating array to hold the expanded jobs list, FIFO page replacement
+jobs2 = []
+jobs2.append(job(1, 8, 8, 3, 4, "Sleep"))
+jobs2.append(job(2, 9, 9, 5, 5, "Sleep"))
+jobs2.append(job(3, 10, 10, 2, 8, "Sleep"))
+jobs2.append(job(4, 11, 11, 4, 6, "End"))
+jobs2.append(job(5, 12, 12, 6, 5, "Sleep"))
+jobs2.append(job(6, 2, 13, 3, 6, "End"))
+jobs2.append(job(7, 4, 13, 3, 4, "Sleep"))
+jobs2.append(job(8, 13, 13, 5, 3, "End"))
+jobs2.append(job(9, 7, 13, 2, 3, "End"))
+jobs2.append(job(10, 9, 17, 4, 4, "Sleep"))
+jobs2.append(job(11, 10, 19, 2, 11, "End"))
+jobs2.append(job(12, 6, 19, 3, 6, "End"))
+jobs2.append(job(13, 5, 20, 2, 10, "Sleep"))
+jobs2.append(job(14, 4, 21, 3, 12, "Sleep"))
+jobs2.append(job(15, 12, 22, 6, 13, "End"))
+jobs2.append(job(16, 8, 22, 3, 9, "End"))
+jobs2.append(job(17, 9, 28, 5, 11, "End"))
+jobs2.append(job(18, 5, 33, 2, 3, "Sleep"))
+jobs2.append(job(19, 4, 34, 3, 10, "End"))
+jobs2.append(job(20, 5, 38, 2, 10, "End"))
+
+# resetting variables
+timer = 0
+jobsLeft = len(jobs2)
+inProgress = []
+jobsAdded = 0
+jobsRemoved = 0
+totalMem = 20
+mem = 0
+
+# visual output for program start
+time.sleep(2)
+print("Expanded Job Set - Best Fit Memory Allocation, FIFO Paging")
+print("starting in 3...")
+time.sleep(1)
+print("2...")
+time.sleep(1)
+print("1...\n")
+time.sleep(1)
+
+### basic algorithm for best fit allocation, FIFO page replacement
+while jobsLeft > 0: # ends when no jobs remaining
+    jobsAdded = 0
+    jobsRemoved = 0
+   
+    # loops through each job every timer tick
+    for obj in jobs2:
+        if obj.interval == 0: # skips loop if interval = 0 (job complete)
+            continue
+
+        # if job is in progress, reduces job execution interval every timer tick
+        if obj.primaryKey in inProgress:
+            obj.interval -= 1
+
+        # page allocation when start time = timer 
+        if obj.start == timer:
+
+            #### FIFO page allocation logic when memory full ####
+            while obj.size > totalMem: # continues to deallocate pages from memory until room is availble for queued page
+                for key in jobs2: # loops until job key matches page table index [0]
+                    if key.primaryKey == inProgress[0]: # deallocates job from page table index [0] per FIFO
+                        inProgress.pop(0)
+                        jobsRemoved += 1
+                        totalMem += key.size
+                        ### print("Mem full page pop logic: \n", inProgress) # output page table changes - used for troubleshooting
+                        break # once index [0] is deallocated, kicks loop back up to check if enough memory is availble
+
+            inProgress.append(obj.primaryKey) # allocates job to memory once room is available
+            jobsAdded += 1
+            totalMem -= obj.size
+            ### print("Start timer append logic: \n", inProgress) # output page table changes - used for troubleshooting
+
+        # once job is done (execution interval = 0), deallocates job from page table
+        if obj.interval == 0:
+            inProgress.remove(obj.primaryKey)
+            totalMem += obj.size
+            jobsLeft -= 1
+            jobsRemoved += 1
+            ### print("Interval 0 remove logic: \n", inProgress) # output page table changes - used for troubleshooting
+            
+            # if a completed job was deallocated, checks for previously deallocated jobs that are incomplete
+            for dog in jobs2: # woof woof
+                if dog.start < timer: # prevents allocation of jobs that have not previously been allocated
+                    if dog.primaryKey not in inProgress: # prevents allocations of jobs already allocated
+                        if dog.size <= totalMem and dog.interval > 0: # allocates incomplete jobs that fit in memory
+                            inProgress.append(dog.primaryKey)                    
+                            totalMem -= dog.size
+                            jobsAdded += 1
+                            ### print("Interval page replace logic: \n", inProgress) # output page table changes - used for troubleshooting
+
+    # using sleep funtion to pause program for 1 second and incrementing timer interval
+    time.sleep(1)
+    timer += 1
+                    
+    print("Time Interval: ", timer - 1, " seconds") # visual output to track work done every time interval
+    print("Jobs added:", jobsAdded)
+    print("Jobs removed:", jobsRemoved)
+    print("Memory used: ", 20 - totalMem, "Kbyte")
+    print("There are ", jobsLeft, " jobs remaining. \n")
+
+# once all jobs are complete, this deallocates jobs with "End" state and outputs results
+jobsRemoved = 0
+for obj in jobs2:
+    if obj.state == "End":
+        jobs2.remove(obj)
+        jobsRemoved += 1
+print(jobsRemoved, " jobs with \"End\" state status have been removed.\n")
+
+#####
+##### Scenario 3 explores Least Recently Used page replacement and best fit memory allocation. From my understanding,
+##### LFU/LRU is the algorithm used by Linux, so this scenario will show the difference in Linux OS memory management.
+#####
+##### The code here is generally the same as the scenario above, albeit with one simple change. Instead of
+##### deallocating the first index in the page table when memory must be freed, it deallocates the last as the
+##### last job appended to the list has the least number of timer ticks and is the least frequently used.
+#####
+##### Keeping in mind that the total runtime remains the same, the analysis here is that LFU is similar to FIFO
+##### only slightly more spread out. Memory utilization spikes early on but dips earlier and stays low longer
+##### before picking back up to a slightly less than full utilization. The final decline as jobs run out also
+##### isn't as sharp as in FIFO.
+#####
+##### My overall analysis is that LFU, while slower, is probably more stable as it spreads memory out a bit more.
+#####
+
+# creating array to hold the expanded jobs list, LFU page replacement
+jobs3 = []
+jobs3.append(job(1, 8, 8, 3, 4, "Sleep"))
+jobs3.append(job(2, 9, 9, 5, 5, "Sleep"))
+jobs3.append(job(3, 10, 10, 2, 8, "Sleep"))
+jobs3.append(job(4, 11, 11, 4, 6, "End"))
+jobs3.append(job(5, 12, 12, 6, 5, "Sleep"))
+jobs3.append(job(6, 2, 13, 3, 6, "End"))
+jobs3.append(job(7, 4, 13, 3, 4, "Sleep"))
+jobs3.append(job(8, 13, 13, 5, 3, "End"))
+jobs3.append(job(9, 7, 13, 2, 3, "End"))
+jobs3.append(job(10, 9, 17, 4, 4, "Sleep"))
+jobs3.append(job(11, 10, 19, 2, 11, "End"))
+jobs3.append(job(12, 6, 19, 3, 6, "End"))
+jobs3.append(job(13, 5, 20, 2, 10, "Sleep"))
+jobs3.append(job(14, 4, 21, 3, 12, "Sleep"))
+jobs3.append(job(15, 12, 22, 6, 13, "End"))
+jobs3.append(job(16, 8, 22, 3, 9, "End"))
+jobs3.append(job(17, 9, 28, 5, 11, "End"))
+jobs3.append(job(18, 5, 33, 2, 3, "Sleep"))
+jobs3.append(job(19, 4, 34, 3, 10, "End"))
+jobs3.append(job(20, 5, 38, 2, 10, "End"))
+
+# resetting variables
+timer = 0
+jobsLeft = len(jobs3)
+inProgress = []
+jobsAdded = 0
+jobsRemoved = 0
+totalMem = 20
+mem = 0
+
+# visual output for program start
+time.sleep(2)
+print("Expanded Job Set - Best Fit Memory Allocation, LFU Paging")
+print("starting in 3...")
+time.sleep(1)
+print("2...")
+time.sleep(1)
+print("1...\n")
+time.sleep(1)
+
+### basic algorithm for best fit allocation, LFU page replacement
+while jobsLeft > 0: # ends when no jobs remaining
+    jobsAdded = 0
+    jobsRemoved = 0
+   
+    # loops through each job every timer tick
+    for obj in jobs3:
+        if obj.interval == 0: # skips loop if interval = 0 (job complete)
+            continue
+
+        # if job is in progress, reduces job execution interval every timer tick
+        if obj.primaryKey in inProgress:
+            obj.interval -= 1
+
+        # page allocation when start time = timer 
+        if obj.start == timer:
+
+            #### LFU page allocation logic when memory full ####
+            while obj.size > totalMem: # continues to deallocate pages from memory until room is availble for queued page
+                for key in jobs3: # loops until job key matches page table index [-1], where last index is LFU
+                    if key.primaryKey == inProgress[-1]: # deallocates job from page table index [-1] per LFU
+                        inProgress.pop(-1)
+                        jobsRemoved += 1
+                        totalMem += key.size
+                        ### print("Mem full page pop logic: \n", inProgress) # output page table changes - used for troubleshooting
+                        break # once index [0] is deallocated, kicks loop back up to check if enough memory is availble
+
+            inProgress.append(obj.primaryKey) # allocates job to memory once room is available
+            jobsAdded += 1
+            totalMem -= obj.size
+            ### print("Start timer append logic: \n", inProgress) # output page table changes - used for troubleshooting
+
+        # once job is done (execution interval = 0), deallocates job from page table
+        if obj.interval == 0:
+            inProgress.remove(obj.primaryKey)
+            totalMem += obj.size
+            jobsLeft -= 1
+            jobsRemoved += 1
+            ### print("Interval 0 remove logic: \n", inProgress) # output page table changes - used for troubleshooting
+            
+            # if a completed job was deallocated, checks for previously deallocated jobs that are incomplete
+            for dog in jobs3: # woof woof
+                if dog.start < timer: # prevents allocation of jobs that have not previously been allocated
+                    if dog.primaryKey not in inProgress: # prevents allocations of jobs already allocated
+                        if dog.size <= totalMem and dog.interval > 0: # allocates incomplete jobs that fit in memory
+                            inProgress.append(dog.primaryKey)                    
+                            totalMem -= dog.size
+                            jobsAdded += 1
+                            ### print("Interval page replace logic: \n", inProgress) # output page table changes - used for troubleshooting
+
+    # using sleep funtion to pause program for 1 second and incrementing timer interval
+    time.sleep(1)
+    timer += 1
+                    
+    print("Time Interval: ", timer - 1, " seconds") # visual output to track work done every time interval
+    print("Jobs added:", jobsAdded)
+    print("Jobs removed:", jobsRemoved)
+    print("Memory used: ", 20 - totalMem, "Kbyte")
+    print("There are ", jobsLeft, " jobs remaining. \n")
+
+# once all jobs are complete, this deallocates jobs with "End" state and outputs results
+jobsRemoved = 0
+for obj in jobs3:
+    if obj.state == "End":
+        jobs3.remove(obj)
+        jobsRemoved += 1
+print(jobsRemoved, " jobs with \"End\" state status have been removed.\n")
+
+#####
+##### Scenario 3 explores Random page replacement and best fit memory allocation. As far as I know, no major OS 
+##### uses Random page replacement, so this scenario will mostly be used to highlight differences with the last two.
+#####
+##### Just as before, the code here is the same but with one change. Instead of deallocating a specific page index,
+##### a random number is generated in the range of the page table size so that a random index can be assigned to
+##### deallocation. If the algorithm has to loop again to free more space, a new random number is generated until 
+##### enough space is freed to allocate the queued job.
+#####
+##### Again, the total runtime remains the same so analysis will be in terms of memory utilization versus the last
+##### two scnearios. Random, as expected, is a lot more spread out overall. It shares highs and lows in memory utilization
+##### compared with FIFO and LFU, but the sections in between are where the spread occurs. Also, interestingly enough
+##### this was the only page replacement algorithm that managed to max out memory utilization at 20kb at any point.
+#####
+##### I'm not entirely sure what to make of Random page replacement in my overall analysis. It does seem to be even more
+##### spread out than LFU, which is likely good for stability. At the same time, it had the highest spike in memory
+##### use amongst all the scenarios. And given the random nature of the algorithm, its hard to say whether these results 
+##### would even be consistent from one use to another. 
+#####
+
+# creating array to hold the expanded jobs list, random page replacement
+jobs4 = []
+jobs4.append(job(1, 8, 8, 3, 4, "Sleep"))
+jobs4.append(job(2, 9, 9, 5, 5, "Sleep"))
+jobs4.append(job(3, 10, 10, 2, 8, "Sleep"))
+jobs4.append(job(4, 11, 11, 4, 6, "End"))
+jobs4.append(job(5, 12, 12, 6, 5, "Sleep"))
+jobs4.append(job(6, 2, 13, 3, 6, "End"))
+jobs4.append(job(7, 4, 13, 3, 4, "Sleep"))
+jobs4.append(job(8, 13, 13, 5, 3, "End"))
+jobs4.append(job(9, 7, 13, 2, 3, "End"))
+jobs4.append(job(10, 9, 17, 4, 4, "Sleep"))
+jobs4.append(job(11, 10, 19, 2, 11, "End"))
+jobs4.append(job(12, 6, 19, 3, 6, "End"))
+jobs4.append(job(13, 5, 20, 2, 10, "Sleep"))
+jobs4.append(job(14, 4, 21, 3, 12, "Sleep"))
+jobs4.append(job(15, 12, 22, 6, 13, "End"))
+jobs4.append(job(16, 8, 22, 3, 9, "End"))
+jobs4.append(job(17, 9, 28, 5, 11, "End"))
+jobs4.append(job(18, 5, 33, 2, 3, "Sleep"))
+jobs4.append(job(19, 4, 34, 3, 10, "End"))
+jobs4.append(job(20, 5, 38, 2, 10, "End"))
+
+# resetting variables
+timer = 0
+jobsLeft = len(jobs4)
+inProgress = []
+jobsAdded = 0
+jobsRemoved = 0
+totalMem = 20
+
+# visual output for program start
+time.sleep(2)
+print("Expanded Job Set - Best Fit Memory Allocation, Random Paging")
+print("starting in 3...")
+time.sleep(1)
+print("2...")
+time.sleep(1)
+print("1...\n")
+time.sleep(1)
+
+### basic algorithm for best fit allocation, random page replacement
+while jobsLeft > 0: # ends when no jobs remaining
+    jobsAdded = 0
+    jobsRemoved = 0
+    
+    # loops through each job every timer tick
+    for obj in jobs4:
+        if obj.interval == 0: # skips loop if interval = 0 (job complete)
+            continue
+
+        # if job is in progress, reduces job execution interval every timer tick
+        if obj.primaryKey in inProgress:
+            obj.interval -= 1
+
+        # page allocation when start time = timer 
+        if obj.start == timer:
+
+            #### Random page allocation logic when memory full ####
+            while obj.size > totalMem: # continues to deallocate pages from memory until room is availble for queued page
+                randomNumber = random.randint(0, len(inProgress)-1) # creating a random number
+                for key in jobs4: # loops until job key matches page table index [random]
+                    if key.primaryKey == inProgress[randomNumber]: # deallocates job from page table index [random]
+                        inProgress.pop(randomNumber)
+                        jobsRemoved += 1
+                        totalMem += key.size
+                        ### print("Mem full page pop logic: \n", inProgress) # output page table changes - used for troubleshooting
+                        break # once index [random] is deallocated, kicks loop back up to check if enough memory is availble
+
+            inProgress.append(obj.primaryKey) # allocates job to memory once room is available
+            jobsAdded += 1
+            totalMem -= obj.size
+            ### print("Start timer append logic: \n", inProgress) # output page table changes - used for troubleshooting
+
+        # once job is done (execution interval = 0), deallocates job from page table
+        if obj.interval == 0:
+            inProgress.remove(obj.primaryKey)
+            totalMem += obj.size
+            jobsLeft -= 1
+            jobsRemoved += 1
+            ### print("Interval 0 remove logic: \n", inProgress) # output page table changes - used for troubleshooting
+            
+            # if a completed job was deallocated, checks for previously deallocated jobs that are incomplete
+            for dog in jobs4: # dog is good boi
+                if dog.start < timer: # prevents allocation of jobs that have not previously been allocated
+                    if dog.primaryKey not in inProgress: # prevents allocations of jobs already allocated
+                        if dog.size <= totalMem and dog.interval > 0: # allocates incomplete jobs that fit in memory
+                            inProgress.append(dog.primaryKey)                    
+                            totalMem -= dog.size
+                            jobsAdded += 1
+                            ### print("Interval page replace logic: \n", inProgress) # output page table changes - used for troubleshooting
+
+    # using sleep funtion to pause program for 1 second and incrementing timer interval
+    time.sleep(1)
+    timer += 1
+              
+    print("Time Interval: ", timer - 1, " seconds") # visual output to track work done every time interval
+    print("Jobs added:", jobsAdded)
+    print("Jobs removed:", jobsRemoved)
+    print("Memory used: ", 20 - totalMem, "Kbyte")
+    print("There are ", jobsLeft, " jobs remaining. \n")
+
+# once all jobs are complete, this deallocates jobs with "End" state and outputs results
+jobsRemoved = 0
+for obj in jobs4:
+    if obj.state == "End":
+        jobs4.remove(obj)
+        jobsRemoved += 1
+print(jobsRemoved, " jobs with \"End\" state status have been removed.\n")
