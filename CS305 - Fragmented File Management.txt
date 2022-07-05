@@ -1,0 +1,248 @@
+#####   Operating Systems Assignment 2 - Building Simple Operating System Functionality
+#####                      July 4, 2022 - by Joel Garcia
+#####           Computer Science 305: Operating Systems - Study.Com
+
+#####
+##### Assignment is split into 4 sections; class implementation and structures, file fragmentation, main program preface,
+##### and memory allocation by file deframentation. Just like with the last assignemnt, I had to make some general assumptions
+##### about what was being asked as things were pretty vague. I am using a similar interpretation of jobs in general as the last time,
+##### where job start time is at what time interval the job must be allocated, required size is how much memory is uses, and interval
+##### is how many seconds it takes to be completed. With that in mind, the new file being introduced in this assignment that is
+##### fragmented into disk blocs (8, 12, 1, 28, 11, 12, 4, 5) is assumed to be job id 8, have a start time of 12 per the instructions
+##### "File required to be transferred to the memory in time interval 12", required 8 Kbytes of memory, and has an execution interval
+##### of 4 per the instructions "File required to stay in memory up to interval 16" (because 12 to 16 is 4). Whether this is the correct
+##### interpretation of the assignment, I have no idea. But I do believe that the way I have structured it based on that interpretation
+##### does at least show my understanding of operating system functionality and file management.
+#####
+
+import time
+import random
+
+#####
+##### Here I create the basic class and data structures that will allow me to complete the assignment.
+#####
+##### Nodes and linked lists are used to hold the defragmented file data, where each linked list contains nodes
+##### that contain the file memory bloc as well as a pointer for the next node. Each entire linked list contains 
+##### a value for each Kbyte of a job size, so where job 3 has a required size of 4, its repective linked list will
+##### contain 4 nodes that each hold a value representing a hypotheical memory address. Accordingly, the primary focus
+##### the assignment (job 8) has 8 nodes to represent each lcation listed in the prompt: 8, 12, 1, 28, 11, 12, 4, 5.
+#####
+##### Note that these defrag classes are not fully built and containt only enough functionality for this assignment.
+#####
+##### At the end of this section we also see data sturcture to hold linked lists and jobs, as well as the same job class
+##### carried over from the last assignment that allows the program to run. Note that the jobs list in this assignment
+##### isn't used to read memory into the program, only to read job id and increment intervals. It is also used outside of the
+##### program to defragment the entire jobs list, which we will see in the next section.
+#####
+
+# creating a class to hold nodes used in linked lists
+class Node(object):
+    # Each node has its data and a pointer that points to next node in the Linked List
+    def __init__(self, data, next = None):
+        self.data = data;
+        self.next = next;
+ 
+# creating file management class that contains linked lists
+class FileManagment(object):
+    # defining the head of the linked list
+    def __init__(self):
+        self.head = None
+
+    # printing the data in the linked list
+    def printFileManagment(self):
+        temp = self.head
+        while(temp):
+            print(temp.data, end=' ')
+            temp = temp.next
+
+    # inserting a node into t he linked list
+    def insertFrag(self, data):
+        if self.head == None:
+            newNode = Node(data)
+            self.head = newNode
+        else:
+            newNode = Node(data)
+            newNode.next = self.head
+            self.head = newNode
+
+    # counting the number of items in the linked list
+    def getCount(self):
+        temp = self.head
+        count = 0
+ 
+        while (temp):
+            count += 1
+            temp = temp.next
+        return count
+
+# creating a class to hold jobs
+class Job:
+    def __init__(self, id, start, size, interval, state):
+        self.id = id
+        self.start = start
+        self.size = size
+        self.interval = interval
+        self.state = state
+
+# holds linked lists containing file fragment locations
+jobFiles = []
+
+# initial list of jobs - can be appended with any amount of new jobs for different use cases
+jobs = []
+jobs.append(Job(1, 1, 2, 7, "Sleep"))
+jobs.append(Job(2, 2, 3, 8, "Sleep"))
+jobs.append(Job(3, 3, 4, 6, "Sleep"))
+jobs.append(Job(4, 4, 3, 6, "Sleep"))
+jobs.append(Job(5, 5, 2, 9, "Sleep"))
+jobs.append(Job(6, 6, 3, 6, "Sleep"))
+jobs.append(Job(7, 7, 2, 6, "Sleep"))
+
+#####
+##### In order to keep the assignment short and simple (at least in terms of run time and readability), I created an algorithm
+##### to defragment the entire jobs list before manually entering the defragments memory location of our new file. This satisfies
+##### both the requirement that I find all the new file memory fragments (which are entered manually) as well as multiple use cases.
+##### Because this algorithm creates a linked list for each job and then randomly assigns a set of nodes based on job required size,
+##### you could append the jobs list with any number of jobs that could be updated with their own linked list deframentation.
+#####
+##### To summarize what happens in this section; I iterate through the jobs list and create a global linked list based on job id.
+##### I then read the job size and insert a number of nodes into that linked list based on job size (size 5 = 5 nodes) and each node
+##### is assigned a random integer to represent a hypothetical memory address. I then manually enter the new file based on the
+##### assignment prompt: size 8 Kbyte, bloc locations = 8, 12, 1, 28, 11, 12, 4, 5. I append this to the array of linked lists and
+##### output each linked lists node values and size to verify everything was done correctly.
+#####
+
+### algorithm to defragment existing jobs into individual linked lists ###
+for obj in jobs: # loops through initial jobs list
+    
+    # creates a global variable that is a concatenation of "file" and current job id, eg job id 5 = file5
+    globals()["file"+str(obj.id)] = FileManagment()
+    
+    # defragments current job into individual Kbytes based on total job size
+    for _ in range(obj.size): # loops for each increment of job size
+        randomNumber = random.randint(0, 99) #generates random number
+        globals()["file"+str(obj.id)].insertFrag(randomNumber) # defragmented Kbyte is sent to memory location represented by randomNumber
+
+    # adds the linked list to jobFiles
+    jobFiles.append(globals()["file"+str(obj.id)])
+
+# predetermined memory bloc locations of job file being added to the initial job list, based on assignment prompt
+newFile8 = [8, 12, 1, 28, 11, 12, 4, 5]
+
+# manually creating new file8 linked listed and inserting memory locations
+file8 = FileManagment()
+for obj in newFile8:
+    file8.insertFrag(obj)
+
+# adding new file8 to jobFiles list
+jobFiles.append(file8)
+ 
+# appending job 8 to list of jobs so system is aware of its existence (but does not yet know memory size)
+jobs.append(Job(8, 12, 8, 4, "Sleep"))
+
+# simple output to check the memory bloc locations and total size of linked list - used for troubleshooting
+for obj in jobFiles:
+    obj.printFileManagment()
+    count = obj.getCount()
+    print()
+    print(count, "objects in linked list.")
+    print()
+
+#####
+##### Here we see my original program from last weeks assignment adapted to read required memory size from the defragmented linked lists
+##### rather than simply reading the job size. The overall program is easy enough to understand b reading the annotations, but I will
+##### further explain how I read the defrag size below in it's own section, which is annotated to stand out for readability. One noteable
+##### difference in this implementation is that jobs are not deallocated from memory when the interval reaches 0. This is done because,
+##### with such a short list, I wouldn't need deallocate jobs in order to allocate our new file, per the assignment prompt. I keep jobs 
+##### allocated after completion to ensure the program can correctly read, deallocate, and allocate memory based solely on defragmentation.
+#####
+
+# variables used by program
+timer = 0
+jobsLeft = len(jobs)
+inProgress = []
+jobsAdded = 0 
+jobsRemoved = 0
+totalMem = 20
+
+# visual output for program start
+print("\n")
+time.sleep(1)
+print("Defragmented File Management and Memory Allocation")
+print("starting in 3...")
+time.sleep(1)
+print("2...")
+time.sleep(1)
+print("1...\n")
+time.sleep(1)
+
+### basic FIFO algorithm to process jobs - reads defragmented file size to determine memory allocation 
+while jobsLeft > 0: # ends when no jobs remaining
+    jobsAdded = 0
+    jobsRemoved = 0
+   
+    # loops through each job every timer tick
+    for obj in jobs:
+        if obj.interval == 0: # skips loop if interval = 0 (job complete)
+            continue
+
+        # if job is in progress, reduces job execution interval every timer tick
+        if obj.id in inProgress:
+            obj.interval -= 1
+
+        # page allocation when start time = timer 
+        if obj.start == timer:
+
+            #####
+            ##### Defrag allocation starts here
+            #####
+            ##### Here is where the program starts to differ from the last assignment. Instead of reading memory size directly from job
+            ##### size, I initialize a variable "jobSize" to hold the count of the defragmented file size contained in the linked lists.
+            ##### I accomplish this by iterating through the array of linked lists themselves to look for a match of the concatenation of 
+            ##### "file" + obj.id, which was used to create said linked lists. When a match is found, I call the linked list count method
+            ##### and assign the returned count to jobSize, which is then used by the program to allocate memory.
+            #####
+
+            jobSize = 0 # variable used by defrag size reader
+
+            #### defrag size reader ####
+            for dog in jobFiles: # iterates through linked lists containing defragmented files
+                if dog == globals()["file"+str(obj.id)]: # if linked list matches current object id concatenation ("file" + job id)...
+                    jobSize = dog.getCount() # ...jobSize is assigned with the total count of memory blocs in linked list
+
+            # FIFO page allocation logic when memory full
+            while jobSize > totalMem: # continues to deallocate pages from memory until room is availble for queued page
+                for key in jobs: # loops until job key matches page table index [0]
+                    if key.id == inProgress[0]: # deallocates job from page table index [0] per FIFO
+                        inProgress.pop(0)
+                        jobsRemoved += 1
+                        totalMem += key.size
+                        ### print("Mem full page pop logic: \n", inProgress) # output page table changes - used for troubleshooting
+                        break # once index [0] is deallocated, kicks loop back up to check if enough memory is availble
+
+            inProgress.append(obj.id) # allocates job to page table once room is available
+            jobsAdded += 1
+            totalMem -= jobSize
+            ### print("Start timer append logic: \n", inProgress) # output page table changes - used for troubleshooting
+
+            #####
+            ##### Defrag allocation stops here
+            #####
+
+        # deincrements total jobs left when interval reaches zero so program knows when it is complete
+        if obj.interval == 0:
+            jobsLeft -= 1
+
+    # using sleep funtion to pause program for 1 second and incrementing timer interval
+    time.sleep(1)
+    timer += 1
+      
+    # visual output to track work done every time interval
+    print("Time Interval: ", timer - 1, " seconds")
+    print("Jobs added:", jobsAdded)
+    print("Jobs removed:", jobsRemoved)
+    print("Memory used: ", 20 - totalMem, "Kbyte")
+    print("There are ", jobsLeft, " jobs remaining. \n")
+
+#####
+##### Thanks for reading! Have a good day!
+#####
