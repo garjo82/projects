@@ -1,0 +1,152 @@
+#include <chrono>
+#include <thread>
+#include <iostream>
+#include <iomanip>
+#include <cstdlib>
+#include <conio.h>
+
+using namespace std;
+
+// function to clear screen
+void ClearScreen() {
+	system("cls");
+}
+
+// clock menu function with pass by reference to change variables at memory location when adjusting clock
+bool ClockMenu(char menu, char choice, char exit, int& hour, int& hour24, int& minute, int& second) {
+
+	// menu outputs every loop call
+	cout << "Press M for menu." << endl;
+
+	// thred utility that allows user to input menu key without hitting enter
+	thread menuTimer([&]() {
+		menu = _getch();
+		});
+
+	// one second timer to increment clock seconds accurately
+	this_thread::sleep_for(chrono::milliseconds(1000));
+
+	// thread will timeout if menu key is not pressed - prevents program from infinitely waiting for user input
+	menuTimer.detach();
+
+	// menu options if menu key is detected
+	if (menu == 'M' || menu == 'm') {
+		ClearScreen();
+
+		// output menu options and input user choice
+		cout << "Enter T to adjust time. Enter Q to exit. Enter any other key to continue." << endl;
+		cin >> choice;
+
+		// clock adjust logic
+		if (choice == 'T' || choice == 't') {
+			char adjust = NULL;
+
+			cout << "Press H to increment HOUR by 1.\n";
+			cout << "Press M to increment MINUTE by 1.\n";
+			cout << "Press S to increment SECOND by 1.\n";
+			cin >> adjust;
+
+			if (adjust == 'H' || adjust == 'h') {
+				hour++;
+				hour24++;
+			}
+
+			if (adjust == 'M' || adjust == 'm') {
+				minute++;
+			}
+
+			if (adjust == 'S' || adjust == 's') {
+				second++;
+			}
+		}
+
+		// if exit selection is detected, function returns false and breaks main method loop
+		if (choice == 'Q' || choice == 'q') {
+			return false;
+		}
+
+		// if exit is not selected, function returns true and main loop continues
+		return true;
+	}
+}
+
+// 12 hour clock format output function
+void ChadaClock12(int hour = 12, int minute = 0, int second = 0, string amPm = "AM") {
+	printf("%02d:%02d:%02d", hour, minute, second);
+	cout << " " << amPm << "\n";
+}
+
+// 24 hour clock format output function
+void ChadaClock24(int hour = 0, int minute = 0, int second = 0) {
+	printf("%02d:%02d:%02d\n", hour, minute, second);
+}
+
+// main method
+int main() {
+	// local clock variables
+	string userAmPm = "AM";
+	int userHour = 6, userHour24 = 17, userMinute = 32, userSecond = 0;
+
+	// local menu variables - always stay NULL as menu logic is contained in menu function
+	char userMenu = NULL;
+	char userChoice = NULL;
+	char userExit = NULL;
+
+	while (userExit == NULL) {
+
+		// clock logic for incrementing minutes - used for 12 and 24 hour
+		if (userSecond == 60) {
+			userSecond = 0;
+			userMinute++;
+		}
+
+		// clock logic for switching AM PM format - 12 hour clock only
+		if (userMinute == 60 && userHour == 11) {
+			if (userAmPm == "AM") {
+				userAmPm = "PM";
+			}
+			else {
+				userAmPm = "AM";
+			}
+		}
+
+		// clock logic for incrementing hour - used for 12 and 24 hour
+		if (userMinute == 60) {
+			userMinute = 0;
+			userHour++;
+			userHour24++;
+		}
+
+		// logic for keeping 12 hour clock between 1 and 12
+		if (userHour == 13) {
+			userHour = 1;
+		}
+
+		// logic for keeping 24 hour clock between 0 and 23
+		if (userHour24 == 24) {
+			userHour24 = 0;
+		}
+
+		// function calls to output clock times
+		ChadaClock12(userHour, userMinute, userSecond, userAmPm);
+		ChadaClock24(userHour24, userMinute, userSecond);
+
+		// function call to clock menu that contains menu, second timer, and exit logic
+		// if exit is selected from menu, menu function returns false and clock program ends
+		if (!ClockMenu(userMenu, userChoice, userExit, userHour, userHour24, userMinute, userSecond)) {
+			break;
+		}
+
+		// function call to clear screen in between second increments
+		ClearScreen();
+
+		// clock logic for incrementing second - 12 and 24 hour
+		userSecond++;
+	}
+
+	// output for end of program confirmation
+	cout << "\nGoodbye.";
+
+	// timer to ensure goodbye message is seen
+	this_thread::sleep_for(chrono::milliseconds(3000));
+}
